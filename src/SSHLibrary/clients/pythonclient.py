@@ -39,8 +39,8 @@ from .abstractclient import (
     SSHClientException,
     SFTPFileInfo,
 )
-from .pythonforward import LocalPortForwarding
-from .utils import is_bytes, is_list_like, is_unicode, is_truthy
+from ..pythonforward import LocalPortForwarding
+from ..utils import is_bytes, is_list_like, is_unicode, is_truthy
 from robot.api import logger
 
 

@@ -14,3 +14,8 @@ examples/log.html
 examples/report.html
 venv
 .ruff_cache
+
+# robot framework
+log.html
+output.xml
+report.html

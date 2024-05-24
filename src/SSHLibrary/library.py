@@ -16,7 +16,6 @@
 from __future__ import print_function
 
 import re
-from .deco import keyword
 
 try:
     from robot.api import logger
@@ -24,8 +23,8 @@ except ImportError:
     logger = None
 
 from .sshconnectioncache import SSHConnectionCache
-from .abstractclient import SSHClientException
-from .client import SSHClient
+from .clients.abstractclient import SSHClientException
+from .clients.client import SSHClient
 from .config import (
     Configuration,
     IntegerEntry,
@@ -522,7 +521,6 @@ class SSHLibrary(object):
     def current(self):
         return self._connections.current
 
-    @keyword(types=None)
     def set_default_configuration(
         self,
         timeout=None,

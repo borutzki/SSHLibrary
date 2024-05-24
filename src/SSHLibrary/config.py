@@ -22,7 +22,7 @@ class ConfigurationException(Exception):
     pass
 
 
-class Configuration(object):
+class Configuration:
     """A simple configuration class.
 
     Configuration is defined with keyword arguments, in which the value must
