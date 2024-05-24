@@ -1,4 +1,3 @@
-
 def keyword(types=()):
     """Decorator to set custom argument types to keywords.
 
@@ -34,4 +33,5 @@ def keyword(types=()):
     def decorator(func):
         func.robot_types = types
         return func
+
     return decorator

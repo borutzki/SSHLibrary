@@ -15,7 +15,7 @@
 
 import sys
 
-if sys.platform.startswith('java'):
-    from .javaclient import JavaSSHClient as SSHClient
+if sys.platform.startswith("java"):
+    pass
 else:
-    from .pythonclient import PythonSSHClient as SSHClient
+    pass

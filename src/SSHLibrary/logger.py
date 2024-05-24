@@ -15,6 +15,7 @@
 
 try:
     from robotbackgroundlogger import BackgroundLogger
+
     logger = BackgroundLogger()
 except ImportError:
-    from robot.api import logger
+    pass

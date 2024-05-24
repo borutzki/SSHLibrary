@@ -17,8 +17,8 @@ from .utils import is_bytes, secs_to_timestr, timestr_to_secs
 
 
 class ConfigurationException(Exception):
-    """Raised when creating, updating or accessing a Configuration entry fails.
-    """
+    """Raised when creating, updating or accessing a Configuration entry fails."""
+
     pass
 
 
@@ -38,11 +38,12 @@ class Configuration(object):
         cfg.update(name='John Doe')
         assert cfg.name == 'John Doe'
     """
+
     def __init__(self, **entries):
         self._config = entries
 
     def __str__(self):
-        return '\n'.join('%s=%s' % (k, v) for k, v in self._config.items())
+        return "\n".join("%s=%s" % (k, v) for k, v in self._config.items())
 
     def update(self, **entries):
         """Update configuration entries.
@@ -109,6 +110,7 @@ class IntegerEntry(Entry):
     Given value is converted to string using `int()`.
 
     """
+
     def _parse_value(self, value):
         return int(value)
 
@@ -120,6 +122,7 @@ class TimeEntry(Entry):
     :py:func:`robot.utils.timestr_to_secs`.
 
     """
+
     def _parse_value(self, value):
         value = str(value)
         return timestr_to_secs(value) if value else None
@@ -134,7 +137,8 @@ class LogLevelEntry(Entry):
     Given string must be one of 'TRACE', 'DEBUG', 'INFO', 'WARN' or 'NONE' case
     insensitively.
     """
-    LEVELS = ('TRACE', 'DEBUG', 'INFO', 'WARN', 'NONE')
+
+    LEVELS = ("TRACE", "DEBUG", "INFO", "WARN", "NONE")
 
     def _parse_value(self, value):
         value = str(value).upper()
@@ -153,7 +157,6 @@ class NewlineEntry(Entry):
 
     def _parse_value(self, value):
         if is_bytes(value):
-            value = value.decode('ASCII')
+            value = value.decode("ASCII")
         value = value.upper()
-        return value.replace('LF', '\n').replace('CR', '\r')
-
+        return value.replace("LF", "\n").replace("CR", "\r")

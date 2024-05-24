@@ -3,8 +3,9 @@ import socket
 import threading
 from robot.utils import PY2, WINDOWS
 from .logger import logger
+
 if PY2 and WINDOWS:
-    import win_inet_pton
+    pass
 try:
     import SocketServer
 except ImportError:
@@ -33,11 +34,17 @@ class LocalPortForwarding:
             host = self.host
             ssh_transport = self.transport
 
-        self.server = ForwardServer((self.bind_address or '', local_port), SubHandler, ipv6=check_if_ipv6(self.host))
+        self.server = ForwardServer(
+            (self.bind_address or "", local_port),
+            SubHandler,
+            ipv6=check_if_ipv6(self.host),
+        )
         t = threading.Thread(target=self.server.serve_forever)
         t.setDaemon(True)
         t.start()
-        logger.info("Now forwarding port %d to %s:%d ..." % (local_port, self.host, self.port))
+        logger.info(
+            "Now forwarding port %d to %s:%d ..." % (local_port, self.host, self.port)
+        )
 
     def close(self):
         if self.server:
@@ -55,7 +62,9 @@ class ForwardServer(SocketServer.ThreadingTCPServer):
     def __init__(self, server_address, RequestHandlerClass, ipv6=False):
         if ipv6:
             ForwardServer.address_family = socket.AF_INET6
-        SocketServer.ThreadingTCPServer.__init__(self, server_address, RequestHandlerClass, bind_and_activate=True)
+        SocketServer.ThreadingTCPServer.__init__(
+            self, server_address, RequestHandlerClass, bind_and_activate=True
+        )
 
 
 class LocalPortForwardingHandler(SocketServer.BaseRequestHandler):
@@ -63,17 +72,24 @@ class LocalPortForwardingHandler(SocketServer.BaseRequestHandler):
 
     def handle(self):
         try:
-            chan = self.ssh_transport.open_channel('direct-tcpip', (self.host, self.port),
-                                                   self.request.getpeername())
+            chan = self.ssh_transport.open_channel(
+                "direct-tcpip", (self.host, self.port), self.request.getpeername()
+            )
         except Exception as e:
-            logger.info("Incoming request to %s:%d failed: %s" % (self.host, self.port, repr(e)))
+            logger.info(
+                "Incoming request to %s:%d failed: %s" % (self.host, self.port, repr(e))
+            )
             return
         if chan is None:
-            logger.info("Incoming request to %s:%d was rejected by the SSH server." % (self.host, self.port))
+            logger.info(
+                "Incoming request to %s:%d was rejected by the SSH server."
+                % (self.host, self.port)
+            )
             return
-        logger.info("Connected! Tunnel open %r -> %r -> %r" % (self.request.getpeername(),
-                                                               chan.getpeername(),
-                                                               (self.host, self.port)))
+        logger.info(
+            "Connected! Tunnel open %r -> %r -> %r"
+            % (self.request.getpeername(), chan.getpeername(), (self.host, self.port))
+        )
         while True:
             r, w, x = select.select([self.request, chan], [], [])
             if self.request in r:

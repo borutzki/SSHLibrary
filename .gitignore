@@ -12,3 +12,5 @@ atest/docker/results
 examples/output.xml
 examples/log.html
 examples/report.html
+venv
+.ruff_cache

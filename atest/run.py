@@ -22,7 +22,7 @@
 import sys
 import os
 
-from os.path import abspath, dirname, exists, join, normpath
+from os.path import abspath, dirname, join
 from robot import run_cli, rebot
 from robotstatuschecker import process_output
 
