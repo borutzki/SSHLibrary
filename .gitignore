@@ -17,6 +17,7 @@ examples/report.html
 venv
 .ruff_cache
 __pycache__
+.mypy_cache
 
 # robot framework
 log.html
