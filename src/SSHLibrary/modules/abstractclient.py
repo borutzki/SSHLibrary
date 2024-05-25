@@ -25,7 +25,7 @@ import fnmatch
 
 from .config import Configuration, IntegerEntry, NewlineEntry, StringEntry, TimeEntry
 from robot.api import logger
-from robot.utils import is_bytes, is_string, unicode
+from robot.utils import is_bytes, is_string, unicode  # type: ignore
 from .exceptions import SSHClientException
 
 from abc import ABC, abstractmethod

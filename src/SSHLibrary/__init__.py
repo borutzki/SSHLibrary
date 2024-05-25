@@ -13,7 +13,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-from .clients.pythonclient import PythonSSHClient  # noqa: F401
+from .modules.pythonclient import PythonSSHClient  # noqa: F401
 from .library import SSHLibrary  # noqa: F401
 from .version import VERSION
 

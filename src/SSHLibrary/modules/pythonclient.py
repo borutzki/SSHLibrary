@@ -25,7 +25,7 @@ except ImportError:
     )
 
 try:
-    import scp
+    import scp  # type: ignore
 except ImportError:
     raise ImportError(
         "Importing SCP library failed. " "Make sure you have SCP installed."
@@ -40,7 +40,7 @@ from .abstractclient import (
 )
 from .exceptions import SSHClientException
 from .pythonforward import LocalPortForwarding
-from robot.utils import is_bytes, is_list_like, is_truthy
+from robot.utils import is_bytes, is_list_like, is_truthy  # type: ignore
 from robot.api import logger
 
 # TODO: PythonSSHClient to be merged with AbstractSSHClient

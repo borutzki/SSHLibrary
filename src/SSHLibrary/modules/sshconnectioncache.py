@@ -1,4 +1,4 @@
-from robot.utils import ConnectionCache
+from robot.utils import ConnectionCache  # type: ignore
 
 
 # TODO: Analyze the code and add documentation

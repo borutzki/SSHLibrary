@@ -29,7 +29,7 @@ from .modules.config import (
     StringEntry,
     TimeEntry,
 )
-from robot.utils import is_string, is_truthy, plural_or_not
+from robot.utils import is_string, is_truthy, plural_or_not  # type: ignore
 from .version import VERSION
 from robot.api.deco import library, keyword
 
