@@ -33,6 +33,7 @@ from robot.utils import is_string, is_truthy, plural_or_not
 from .version import VERSION
 from robot.api.deco import library, keyword
 
+# TODO: Add typehints to all methods and attributes
 
 __version__ = VERSION
 

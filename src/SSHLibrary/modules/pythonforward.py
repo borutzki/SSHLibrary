@@ -6,6 +6,7 @@ from robot.api import logger
 import socketserver as SocketServer
 
 
+# TODO: Analyze the code and add documentation
 def check_if_ipv6(ip):
     try:
         socket.inet_pton(socket.AF_INET6, ip)

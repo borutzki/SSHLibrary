@@ -1,6 +1,7 @@
 from robot.utils import ConnectionCache
 
 
+# TODO: Analyze the code and add documentation
 class SSHConnectionCache(ConnectionCache):
     def __init__(self):
         ConnectionCache.__init__(self, no_current_msg="No open connection.")

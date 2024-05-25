@@ -30,6 +30,9 @@ from .exceptions import SSHClientException
 
 from abc import ABC, abstractmethod
 
+# TODO: As Jython support is dropped, `AbstractSSHClient` is to be merged with PythonSSHClient
+# TODO: Add type hints
+
 
 class _ClientConfiguration(Configuration):
     def __init__(

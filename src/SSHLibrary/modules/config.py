@@ -20,6 +20,7 @@ from robot.utils import (  # type: ignore
 )
 from typing import Any
 from .exceptions import ConfigurationException
+# TODO: Use ABC
 
 
 class Configuration:

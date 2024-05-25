@@ -43,7 +43,10 @@ from .pythonforward import LocalPortForwarding
 from robot.utils import is_bytes, is_list_like, is_truthy
 from robot.api import logger
 
+# TODO: PythonSSHClient to be merged with AbstractSSHClient
 
+
+# TODO: Analyze usage of banner timeout
 # There doesn't seem to be a simpler way to increase banner timeout
 def _custom_start_client(self, *args, **kwargs):
     self.banner_timeout = 45
