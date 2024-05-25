@@ -18,10 +18,10 @@ import re
 
 from robot.api import logger
 
-from .sshconnectioncache import SSHConnectionCache
-from .clients.abstractclient import SSHClientException
-from .clients.pythonclient import PythonSSHClient as SSHClient
-from .config import (
+from .modules.sshconnectioncache import SSHConnectionCache
+from .modules.abstractclient import SSHClientException
+from .modules.pythonclient import PythonSSHClient as SSHClient
+from .modules.config import (
     Configuration,
     IntegerEntry,
     LogLevelEntry,

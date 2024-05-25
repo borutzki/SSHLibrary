@@ -39,7 +39,7 @@ from .abstractclient import (
     SSHClientException,
     SFTPFileInfo,
 )
-from ..pythonforward import LocalPortForwarding
+from .pythonforward import LocalPortForwarding
 from robot.utils import is_bytes, is_list_like, is_truthy
 from robot.api import logger
 

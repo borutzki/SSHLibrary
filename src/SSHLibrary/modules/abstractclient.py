@@ -23,7 +23,7 @@ import posixpath
 import ntpath
 import fnmatch
 
-from ..config import Configuration, IntegerEntry, NewlineEntry, StringEntry, TimeEntry
+from .config import Configuration, IntegerEntry, NewlineEntry, StringEntry, TimeEntry
 from robot.api import logger
 from robot.utils import is_bytes, is_string, unicode
 
