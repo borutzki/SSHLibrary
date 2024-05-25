@@ -28,6 +28,8 @@ from robot.api import logger
 from robot.utils import is_bytes, is_string, unicode
 from .exceptions import SSHClientException
 
+from abc import ABC, abstractmethod
+
 
 class _ClientConfiguration(Configuration):
     def __init__(
@@ -64,7 +66,7 @@ class _ClientConfiguration(Configuration):
         )
 
 
-class AbstractSSHClient(object):
+class AbstractSSHClient(ABC):
     """Base class for the SSH client implementation.
 
     This class defines the public API. Subclasses (:py:class:`pythonclient.
@@ -112,10 +114,12 @@ class AbstractSSHClient(object):
         self.width = width
         self.height = height
 
+    @abstractmethod
     def _get_client(self):
         raise NotImplementedError("This should be implemented in the subclass.")
 
     @staticmethod
+    @abstractmethod
     def enable_logging(path):
         """Enables logging of SSH events to a file.
 
@@ -172,15 +176,19 @@ class AbstractSSHClient(object):
             self.width, self.height = self.config.width, self.config.height
         return self._shell
 
+    @abstractmethod
     def _create_sftp_client(self):
         raise NotImplementedError
 
+    @abstractmethod
     def _create_scp_transfer_client(self):
         raise NotImplementedError
 
+    @abstractmethod
     def _create_scp_all_client(self):
         raise NotImplementedError
 
+    @abstractmethod
     def _create_shell(self):
         raise NotImplementedError
 
@@ -279,6 +287,7 @@ class AbstractSSHClient(object):
     def _decode(self, bytes):
         return bytes.decode(self.config.encoding, self.config.encoding_errors)
 
+    @abstractmethod
     def _login(
         self,
         username,
@@ -383,6 +392,7 @@ class AbstractSSHClient(object):
         except IOError:
             raise SSHClientException("Could not read key file '%s'." % keyfile)
 
+    @abstractmethod
     def _login_with_public_key(
         self,
         username,
@@ -398,9 +408,11 @@ class AbstractSSHClient(object):
         raise NotImplementedError
 
     @staticmethod
+    @abstractmethod
     def get_banner_without_login(host, port=22):
         raise NotImplementedError("Not supported on this Python interpreter.")
 
+    @abstractmethod
     def get_banner(self):
         raise NotImplementedError("Not supported on this Python interpreter.")
 
@@ -478,6 +490,7 @@ class AbstractSSHClient(object):
             )
         )
 
+    @abstractmethod
     def _start_command(
         self,
         command,
@@ -939,7 +952,7 @@ class AbstractSSHClient(object):
             return self.sftp_client
 
 
-class AbstractShell(object):
+class AbstractShell(ABC):
     """Base class for the shell implementation.
 
     Classes derived from this class (i.e. :py:class:`pythonclient.Shell`
@@ -947,6 +960,7 @@ class AbstractShell(object):
     specific implementations for reading and writing in a shell session.
     """
 
+    @abstractmethod
     def read(self):
         """Reads all the output from the shell.
 
@@ -954,6 +968,7 @@ class AbstractShell(object):
         """
         raise NotImplementedError
 
+    @abstractmethod
     def read_byte(self):
         """Reads a single byte from the shell.
 
@@ -961,6 +976,7 @@ class AbstractShell(object):
         """
         raise NotImplementedError
 
+    @abstractmethod
     def write(self, text):
         """Writes the `text` in the current shell.
 
@@ -970,7 +986,7 @@ class AbstractShell(object):
         raise NotImplementedError
 
 
-class AbstractSFTPClient(object):
+class AbstractSFTPClient(ABC):
     """Base class for the SFTP implementation.
 
     Classes derived from this class (i.e. :py:class:`pythonclient.SFTPClient`
@@ -983,6 +999,7 @@ class AbstractSFTPClient(object):
         self._encoding = encoding
         self._homedir = self._absolute_path(b".")
 
+    @abstractmethod
     def _absolute_path(self, path):
         raise NotImplementedError
 
@@ -1002,6 +1019,7 @@ class AbstractSFTPClient(object):
             return False
         return item.is_regular()
 
+    @abstractmethod
     def _stat(self, path):
         raise NotImplementedError
 
@@ -1290,6 +1308,7 @@ class AbstractSFTPClient(object):
         if not os.path.exists(destination):
             os.makedirs(destination)
 
+    @abstractmethod
     def _get_file(self, source, destination, scp_preserve_times):
         raise NotImplementedError
 
@@ -1535,23 +1554,28 @@ class AbstractSFTPClient(object):
                 position += len(data)
             self._close_remote_file(remote_file)
 
+    @abstractmethod
     def _create_remote_file(self, destination, mode):
         raise NotImplementedError
 
+    @abstractmethod
     def _write_to_remote_file(self, remote_file, data, position):
         raise NotImplementedError
 
+    @abstractmethod
     def _close_remote_file(self, remote_file):
         raise NotImplementedError
 
+    @abstractmethod
     def create_local_ssh_tunnel(self, local_port, remote_host, remote_port, client):
         raise NotImplementedError
 
+    @abstractmethod
     def _readlink(self, path):
         raise NotImplementedError
 
 
-class AbstractCommand(object):
+class AbstractCommand(ABC):
     """Base class for the remote command.
 
     Classes derived from this class (i.e. :py:class:`pythonclient.RemoteCommand`
