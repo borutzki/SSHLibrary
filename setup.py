@@ -1,33 +1,26 @@
 #!/usr/bin/env python
 
-import re
-import sys
-import os
 from os.path import abspath, dirname, join
 from setuptools import setup
+from src.SSHLibrary.version import VERSION
 
 CURDIR = dirname(abspath(__file__))
-REQUIREMENTS = ["robotframework >= 3.0"]
-if not sys.platform.startswith("java"):
-    REQUIREMENTS.append("paramiko >= 1.15.3")
-    REQUIREMENTS.append("scp >= 0.13.0")
-    if sys.version_info[0] < 3 and os.name == "nt":
-        REQUIREMENTS.append("win_inet_pton >= 1.1.0")
-with open(join(CURDIR, "src", "SSHLibrary", "version.py")) as f:
-    VERSION = re.search("\nVERSION = '(.*)'", f.read()).group(1)
+REQUIREMENTS = [
+    "robotframework >= 7.0",
+    "paramiko >= 1.15.3",
+    "scp >= 0.13.0",
+]
+
+
 with open(join(CURDIR, "README.rst")) as f:
     DESCRIPTION = f.read()
+
 CLASSIFIERS = """
 Development Status :: 5 - Production/Stable
 License :: OSI Approved :: Apache Software License
 Operating System :: OS Independent
 Programming Language :: Python
-Programming Language :: Python :: 2.7
-Programming Language :: Python :: 3.4
-Programming Language :: Python :: 3.5
-Programming Language :: Python :: 3.6
-Programming Language :: Python :: 3.7
-Programming Language :: Python :: 3.8
+Programming Language :: Python :: 3.10
 Topic :: Software Development :: Testing
 Framework :: Robot Framework
 Framework :: Robot Framework :: Library
