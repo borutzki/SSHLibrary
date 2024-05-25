@@ -26,10 +26,7 @@ import fnmatch
 from .config import Configuration, IntegerEntry, NewlineEntry, StringEntry, TimeEntry
 from robot.api import logger
 from robot.utils import is_bytes, is_string, unicode
-
-
-class SSHClientException(RuntimeError):
-    pass
+from .exceptions import SSHClientException
 
 
 class _ClientConfiguration(Configuration):

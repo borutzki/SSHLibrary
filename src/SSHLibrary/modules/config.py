@@ -19,12 +19,7 @@ from robot.utils import (  # type: ignore
     timestr_to_secs,
 )
 from typing import Any
-
-
-class ConfigurationException(Exception):
-    """Raised when creating, updating or accessing a Configuration entry fails."""
-
-    pass
+from .exceptions import ConfigurationException
 
 
 class Configuration:

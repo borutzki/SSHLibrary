@@ -19,7 +19,7 @@ import re
 from robot.api import logger
 
 from .modules.sshconnectioncache import SSHConnectionCache
-from .modules.abstractclient import SSHClientException
+from .modules.exceptions import SSHClientException
 from .modules.pythonclient import PythonSSHClient as SSHClient
 from .modules.config import (
     Configuration,
