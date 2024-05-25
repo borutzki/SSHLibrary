@@ -40,7 +40,7 @@ from .abstractclient import (
     SFTPFileInfo,
 )
 from ..pythonforward import LocalPortForwarding
-from ..utils import is_bytes, is_list_like, is_unicode, is_truthy
+from robot.utils import is_bytes, is_list_like, is_unicode, is_truthy
 from robot.api import logger
 
 
@@ -438,7 +438,7 @@ class SFTPClient(AbstractSFTPClient):
         return SFTPFileInfo("", attributes.st_mode)
 
     def _create_missing_remote_path(self, path, mode):
-        if is_unicode(path):
+        if str(path):
             path = path.encode(self._encoding)
         return super(SFTPClient, self)._create_missing_remote_path(path, mode)
 

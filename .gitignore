@@ -12,8 +12,11 @@ atest/docker/results
 examples/output.xml
 examples/log.html
 examples/report.html
+
+# python
 venv
 .ruff_cache
+__pycache__
 
 # robot framework
 log.html

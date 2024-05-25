@@ -1,15 +1,9 @@
 import select
 import socket
 import threading
-from robot.utils import PY2, WINDOWS
-from .logger import logger
+from robot.api import logger
 
-if PY2 and WINDOWS:
-    pass
-try:
-    import SocketServer
-except ImportError:
-    import socketserver as SocketServer
+import socketserver as SocketServer
 
 
 def check_if_ipv6(ip):

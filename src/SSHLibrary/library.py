@@ -13,18 +13,14 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-from __future__ import print_function
 
 import re
 
-try:
-    from robot.api import logger
-except ImportError:
-    logger = None
+from robot.api import logger
 
 from .sshconnectioncache import SSHConnectionCache
 from .clients.abstractclient import SSHClientException
-from .clients.client import SSHClient
+from .clients.pythonclient import PythonSSHClient as SSHClient
 from .config import (
     Configuration,
     IntegerEntry,
@@ -33,7 +29,7 @@ from .config import (
     StringEntry,
     TimeEntry,
 )
-from .utils import is_string, is_truthy, plural_or_not
+from robot.utils import is_string, is_truthy, plural_or_not
 from .version import VERSION
 from robot.api.deco import library, keyword
 
