@@ -35,12 +35,14 @@ from .config import (
 )
 from .utils import is_string, is_truthy, plural_or_not
 from .version import VERSION
+from robot.api.deco import library, keyword
 
 
 __version__ = VERSION
 
 
-class SSHLibrary(object):
+@library(scope="GLOBAL", version=VERSION)
+class SSHLibrary:
     """SSHLibrary is a Robot Framework test library for SSH and SFTP.
 
      This document explains how to use keywords provided by SSHLibrary.
@@ -447,9 +449,6 @@ class SSHLibrary(object):
 
     """
 
-    ROBOT_LIBRARY_SCOPE = "GLOBAL"
-    ROBOT_LIBRARY_VERSION = __version__
-
     DEFAULT_TIMEOUT = "3 seconds"
     DEFAULT_NEWLINE = "LF"
     DEFAULT_PROMPT = None
@@ -521,6 +520,7 @@ class SSHLibrary(object):
     def current(self):
         return self._connections.current
 
+    @keyword("Set Default Configuration")
     def set_default_configuration(
         self,
         timeout=None,
@@ -579,6 +579,7 @@ class SSHLibrary(object):
             encoding_errors=encoding_errors,
         )
 
+    @keyword("Set Client Configuration")
     def set_client_configuration(
         self,
         timeout=None,
@@ -635,6 +636,7 @@ class SSHLibrary(object):
             encoding_errors=encoding_errors,
         )
 
+    @keyword("Enable SSH Logging")
     def enable_ssh_logging(self, logfile):
         """Enables logging of SSH protocol output to given ``logfile``.
 
@@ -657,6 +659,7 @@ class SSHLibrary(object):
         if SSHClient.enable_logging(logfile):
             self._log('SSH log is written to <a href="%s">file</a>.' % logfile, "HTML")
 
+    @keyword("Open Connection")
     def open_connection(
         self,
         host,
@@ -765,6 +768,7 @@ class SSHLibrary(object):
         client.config.update(index=connection_index)
         return connection_index
 
+    @keyword("Switch Connection")
     def switch_connection(self, index_or_alias):
         """Switches the active connection by index or alias.
 
@@ -797,6 +801,7 @@ class SSHLibrary(object):
             self._connections.switch(index_or_alias)
         return old_index
 
+    @keyword("Close Connection")
     def close_connection(self):
         """Closes the current connection.
 
@@ -813,6 +818,7 @@ class SSHLibrary(object):
         connections = self._connections
         connections.close_current()
 
+    @keyword("Close All Connections")
     def close_all_connections(self):
         """Closes all open connections.
 
@@ -831,6 +837,7 @@ class SSHLibrary(object):
         """
         self._connections.close_all()
 
+    @keyword("Get Connection")
     def get_connection(
         self,
         index_or_alias=None,
@@ -1024,6 +1031,7 @@ class SSHLibrary(object):
         if is_truthy(escape_ansi):
             yield config.escape_ansi
 
+    @keyword("Get Connections")
     def get_connections(self):
         """Returns information about all the open connections.
 
@@ -1047,6 +1055,7 @@ class SSHLibrary(object):
             self._log(str(c), self._config.loglevel)
         return configs
 
+    @keyword("Login")
     def login(
         self,
         username=None,
@@ -1144,6 +1153,7 @@ class SSHLibrary(object):
             keep_alive_interval,
         )
 
+    @keyword("Login With Public Key")
     def login_with_public_key(
         self,
         username=None,
@@ -1257,6 +1267,7 @@ class SSHLibrary(object):
         except SSHClientException as e:
             raise RuntimeError(e)
 
+    @keyword("Get Pre Login Banner")
     def get_pre_login_banner(self, host=None, port=22):
         """Returns the banner supplied by the server upon connect.
 
@@ -1291,6 +1302,7 @@ class SSHLibrary(object):
             )
         return banner.decode(self.DEFAULT_ENCODING)
 
+    @keyword("Execute Command")
     def execute_command(
         self,
         command,
@@ -1391,6 +1403,7 @@ class SSHLibrary(object):
         )
         return self._return_command_output(stdout, stderr, rc, *opts)
 
+    @keyword("Start Command")
     def start_command(
         self,
         command,
@@ -1458,6 +1471,7 @@ class SSHLibrary(object):
             is_truthy(forward_agent),
         )
 
+    @keyword("Read Command Output")
     def read_command_output(
         self, return_stdout=True, return_stderr=False, return_rc=False, timeout=None
     ):
@@ -1520,6 +1534,7 @@ class SSHLibrary(object):
             raise RuntimeError(msg)
         return self._return_command_output(stdout, stderr, rc, *opts)
 
+    @keyword("Create Local SSH Tunnel")
     def create_local_ssh_tunnel(
         self, local_port, remote_host, remote_port=22, bind_address=None
     ):
@@ -1581,6 +1596,7 @@ class SSHLibrary(object):
             return ret[0]
         return ret
 
+    @keyword("Write")
     def write(self, text, loglevel=None):
         """Writes the given ``text`` on the remote machine and appends a newline.
 
@@ -1608,6 +1624,7 @@ class SSHLibrary(object):
         self._write(text, add_newline=True)
         return self._read_and_log(loglevel, self.current.read_until_newline)
 
+    @keyword("Write Bare")
     def write_bare(self, text):
         """Writes the given ``text`` on the remote machine without appending a newline.
 
@@ -1633,6 +1650,7 @@ class SSHLibrary(object):
         except SSHClientException as e:
             raise RuntimeError(e)
 
+    @keyword("Write Until Expected Output")
     def write_until_expected_output(
         self, text, expected, timeout, retry_interval, loglevel=None
     ):
@@ -1668,6 +1686,7 @@ class SSHLibrary(object):
             retry_interval,
         )
 
+    @keyword("Read")
     def read(self, loglevel=None, delay=None):
         """Consumes and returns everything available on the server output.
 
@@ -1697,6 +1716,7 @@ class SSHLibrary(object):
         """
         return self._read_and_log(loglevel, self.current.read, delay)
 
+    @keyword("Read Until")
     def read_until(self, expected, loglevel=None):
         """Consumes and returns the server output until ``expected`` is encountered.
 
@@ -1723,6 +1743,7 @@ class SSHLibrary(object):
         """
         return self._read_and_log(loglevel, self.current.read_until, expected)
 
+    @keyword("Read Until Prompt")
     def read_until_prompt(self, loglevel=None, strip_prompt=False):
         """Consumes and returns the server output until the prompt is found.
 
@@ -1762,6 +1783,7 @@ class SSHLibrary(object):
             loglevel, self.current.read_until_prompt, is_truthy(strip_prompt)
         )
 
+    @keyword("Read Until Regexp")
     def read_until_regexp(self, regexp, loglevel=None):
         """Consumes and returns the server output until a match to ``regexp`` is found.
 
@@ -1813,6 +1835,7 @@ class SSHLibrary(object):
         output = ansi_escape.sub("", output)
         return ("%r" % output)[1:-1].encode().decode("unicode-escape")
 
+    @keyword("Get File")
     def get_file(self, source, destination=".", scp="OFF", scp_preserve_times=False):
         """Downloads file(s) from the remote machine to the local machine.
 
@@ -1870,6 +1893,7 @@ class SSHLibrary(object):
             self.current.get_file, source, destination, scp, scp_preserve_times
         )
 
+    @keyword("Get Directory")
     def get_directory(
         self,
         source,
@@ -1931,6 +1955,7 @@ class SSHLibrary(object):
             scp_preserve_times,
         )
 
+    @keyword("Put File")
     def put_file(
         self,
         source,
@@ -2007,6 +2032,7 @@ class SSHLibrary(object):
             scp_preserve_times,
         )
 
+    @keyword("Put Directory")
     def put_directory(
         self,
         source,
@@ -2088,6 +2114,7 @@ class SSHLibrary(object):
             for src, dst in files:
                 self._log("'%s' -> '%s'" % (src, dst), self._config.loglevel)
 
+    @keyword("File Should Exist")
     def file_should_exist(self, path):
         """Fails if the given ``path`` does NOT point to an existing file.
 
@@ -2103,6 +2130,7 @@ class SSHLibrary(object):
         if not self.current.is_file(path):
             raise AssertionError("File '%s' does not exist." % path)
 
+    @keyword("File Should Not Exist")
     def file_should_not_exist(self, path):
         """Fails if the given ``path`` points to an existing file.
 
@@ -2118,6 +2146,7 @@ class SSHLibrary(object):
         if self.current.is_file(path):
             raise AssertionError("File '%s' exists." % path)
 
+    @keyword("Directory Should Exist")
     def directory_should_exist(self, path):
         """Fails if the given ``path`` does not point to an existing directory.
 
@@ -2133,6 +2162,7 @@ class SSHLibrary(object):
         if not self.current.is_dir(path):
             raise AssertionError("Directory '%s' does not exist." % path)
 
+    @keyword("Directory Should Not Exist")
     def directory_should_not_exist(self, path):
         """Fails if the given ``path`` points to an existing directory.
 
@@ -2148,6 +2178,7 @@ class SSHLibrary(object):
         if self.current.is_dir(path):
             raise AssertionError("Directory '%s' exists." % path)
 
+    @keyword("List Directory")
     def list_directory(self, path, pattern=None, absolute=False):
         """Returns and logs items in the remote ``path``, optionally filtered with ``pattern``.
 
@@ -2187,6 +2218,7 @@ class SSHLibrary(object):
         )
         return items
 
+    @keyword("List Files In Directory")
     def list_files_in_directory(self, path, pattern=None, absolute=False):
         """A wrapper for `List Directory` that returns only files."""
         absolute = is_truthy(absolute)
@@ -2201,6 +2233,7 @@ class SSHLibrary(object):
         )
         return files
 
+    @keyword("List Directories In Directory")
     def list_directories_in_directory(self, path, pattern=None, absolute=False):
         """A wrapper for `List Directory` that returns only directories."""
         try:
