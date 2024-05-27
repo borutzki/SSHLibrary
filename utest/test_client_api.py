@@ -1,6 +1,6 @@
 import unittest
 
-from SSHLibrary import SSHClient
+from SSHLibrary.modules.ssh_client import SSHClient
 
 
 class TestClienAPI(unittest.TestCase):

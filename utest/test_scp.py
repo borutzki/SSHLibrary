@@ -1,9 +1,9 @@
 import os
 import unittest
 
-from SSHLibrary import abstractclient, SSHClient
+from SSHLibrary.modules.ssh_client import SSHClient, SFTPClient
 
-abstractclient.AbstractSFTPClient._absolute_path = lambda obj, path: "/home"
+SFTPClient._absolute_path = lambda obj, path: "/home"
 
 
 class TestRemoteAndLocalPathResolution(unittest.TestCase):
@@ -20,7 +20,7 @@ class TestRemoteAndLocalPathResolution(unittest.TestCase):
             (["myfile"], "\\tmp\\", ["/tmp/myfile"]),
         ]
         for src, dest, exp in data:
-            client = abstractclient.AbstractSFTPClient()
+            client = SFTPClient()
             client.is_dir = lambda x: False
             remote = client._get_put_file_destinations(src, dest, "/")[0]
             self.assertEquals(remote, exp)
@@ -37,7 +37,7 @@ class TestRemoteAndLocalPathResolution(unittest.TestCase):
             ),
         ]
         for src, dest, exp in data:
-            client = abstractclient.AbstractSFTPClient()
+            client = SFTPClient()
             local = client._get_get_file_destinations(src, dest)
             self.assertEquals(local, exp)
 

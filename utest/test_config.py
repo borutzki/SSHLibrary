@@ -1,6 +1,6 @@
 import unittest
 
-from SSHLibrary.config import (
+from SSHLibrary.modules.config import (
     Configuration,
     ConfigurationException,
     IntegerEntry,
