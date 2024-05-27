@@ -27,11 +27,53 @@ from .config import Configuration, IntegerEntry, NewlineEntry, StringEntry, Time
 from robot.api import logger
 from robot.utils import is_bytes, is_string, unicode  # type: ignore
 from .exceptions import SSHClientException
+from .pythonforward import LocalPortForwarding
+from robot.utils import is_list_like, is_truthy  # type: ignore
 
-from abc import ABC, abstractmethod
 
-# TODO: As Jython support is dropped, `AbstractSSHClient` is to be merged with PythonSSHClient
+try:
+    import paramiko
+except ImportError:
+    raise ImportError(
+        "Importing Paramiko library failed. " "Make sure you have Paramiko installed."
+    )
+
+try:
+    import scp  # type: ignore
+except ImportError:
+    raise ImportError(
+        "Importing SCP library failed. " "Make sure you have SCP installed."
+    )
+
+
 # TODO: Add type hints
+# TODO: Analyze usage of banner timeout
+# There doesn't seem to be a simpler way to increase banner timeout
+def _custom_start_client(self, *args, **kwargs):
+    self.banner_timeout = 45
+    self._orig_start_client(*args, **kwargs)
+
+
+paramiko.transport.Transport._orig_start_client = (
+    paramiko.transport.Transport.start_client
+)
+paramiko.transport.Transport.start_client = _custom_start_client
+
+
+# See http://code.google.com/p/robotframework-sshlibrary/issues/detail?id=55
+def _custom_log(self, level, msg, *args):
+    def escape(s):
+        return s.replace("%", "%%")
+
+    if is_list_like(msg):
+        msg = [escape(m) for m in msg]
+    else:
+        msg = escape(msg)
+    return self._orig_log(level, msg, *args)
+
+
+paramiko.sftp_client.SFTPClient._orig_log = paramiko.sftp_client.SFTPClient._log
+paramiko.sftp_client.SFTPClient._log = _custom_log
 
 
 class _ClientConfiguration(Configuration):
@@ -69,13 +111,15 @@ class _ClientConfiguration(Configuration):
         )
 
 
-class AbstractSSHClient(ABC):
+class SSHClient:
     """Base class for the SSH client implementation.
 
     This class defines the public API. Subclasses (:py:class:`pythonclient.
-    PythonSSHClient` and :py:class:`javaclient.JavaSSHClient`) provide the
+    SSHClient` and :py:class:`javaclient.JavaSSHClient`) provide the
     language specific concrete implementations.
     """
+
+    tunnel = None
 
     def __init__(
         self,
@@ -117,12 +161,12 @@ class AbstractSSHClient(ABC):
         self.width = width
         self.height = height
 
-    @abstractmethod
     def _get_client(self):
-        raise NotImplementedError("This should be implemented in the subclass.")
+        client = paramiko.SSHClient()
+        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        return client
 
     @staticmethod
-    @abstractmethod
     def enable_logging(path):
         """Enables logging of SSH events to a file.
 
@@ -130,7 +174,8 @@ class AbstractSSHClient(ABC):
 
         :returns: `True`, if logging was successfully enabled. False otherwise.
         """
-        raise NotImplementedError
+        paramiko.util.log_to_file(path)
+        return True
 
     @property
     def sftp_client(self):
@@ -142,6 +187,84 @@ class AbstractSSHClient(ABC):
         if not self._sftp_client:
             self._sftp_client = self._create_sftp_client()
         return self._sftp_client
+
+    @staticmethod
+    def _read_login_ssh_config(host, username, port_number, proxy_cmd):
+        ssh_config_file = os.path.expanduser("~/.ssh/config")
+        if os.path.exists(ssh_config_file):
+            conf = paramiko.SSHConfig()
+            with open(ssh_config_file) as f:
+                conf.parse(f)
+            port = int(SSHClient._get_ssh_config_port(conf, host, port_number))
+            user = SSHClient._get_ssh_config_user(conf, host, username)
+            proxy_command = SSHClient._get_ssh_config_proxy_cmd(conf, host, proxy_cmd)
+            host = SSHClient._get_ssh_config_host(conf, host)
+            return host, user, port, proxy_command
+        return host, username, port_number, proxy_cmd
+
+    @staticmethod
+    def _read_public_key_ssh_config(
+        host, username, port_number, proxy_cmd, identity_file
+    ):
+        ssh_config_file = os.path.expanduser("~/.ssh/config")
+        if os.path.exists(ssh_config_file):
+            conf = paramiko.SSHConfig()
+            with open(ssh_config_file) as f:
+                conf.parse(f)
+            port = int(SSHClient._get_ssh_config_port(conf, host, port_number))
+            id_file = SSHClient._get_ssh_config_identity_file(conf, host, identity_file)
+            user = SSHClient._get_ssh_config_user(conf, host, username)
+            proxy_command = SSHClient._get_ssh_config_proxy_cmd(conf, host, proxy_cmd)
+            host = SSHClient._get_ssh_config_host(conf, host)
+            return host, user, port, id_file, proxy_command
+        return host, username, port_number, identity_file, proxy_cmd
+
+    @staticmethod
+    def _get_ssh_config_user(conf, host, user):
+        try:
+            return conf.lookup(host)["user"] if not None else user
+        except KeyError:
+            return None
+
+    @staticmethod
+    def _get_ssh_config_proxy_cmd(conf, host, proxy_cmd):
+        try:
+            return conf.lookup(host)["proxycommand"] if not None else proxy_cmd
+        except KeyError:
+            return proxy_cmd
+
+    @staticmethod
+    def _get_ssh_config_identity_file(conf, host, id_file):
+        try:
+            return conf.lookup(host)["identityfile"][0] if not None else id_file
+        except KeyError:
+            return id_file
+
+    @staticmethod
+    def _get_ssh_config_port(conf, host, port_number):
+        try:
+            return conf.lookup(host)["port"] if not None else port_number
+        except KeyError:
+            return port_number
+
+    @staticmethod
+    def _get_ssh_config_host(conf, host):
+        try:
+            return conf.lookup(host)["hostname"] if not None else host
+        except KeyError:
+            return host
+
+    def _get_jumphost_tunnel(self, jumphost_connection):
+        dest_addr = (self.config.host, self.config.port)
+        jump_addr = (jumphost_connection.config.host, jumphost_connection.config.port)
+        jumphost_transport = jumphost_connection.client.get_transport()
+        if not jumphost_transport:
+            raise RuntimeError(
+                "Could not get transport for {}:{}. Have you logged in?".format(
+                    *jump_addr
+                )
+            )
+        return jumphost_transport.open_channel("direct-tcpip", dest_addr, jump_addr)
 
     @property
     def scp_transfer_client(self):
@@ -179,24 +302,24 @@ class AbstractSSHClient(ABC):
             self.width, self.height = self.config.width, self.config.height
         return self._shell
 
-    @abstractmethod
     def _create_sftp_client(self):
-        raise NotImplementedError
+        return SFTPClient(self.client, self.config.encoding)
 
-    @abstractmethod
     def _create_scp_transfer_client(self):
-        raise NotImplementedError
+        return SCPTransferClient(self.client, self.config.encoding)
 
-    @abstractmethod
     def _create_scp_all_client(self):
-        raise NotImplementedError
+        return SCPClient(self.client)
 
-    @abstractmethod
     def _create_shell(self):
-        raise NotImplementedError
+        return Shell(
+            self.client, self.config.term_type, self.config.width, self.config.height
+        )
 
     def close(self):
         """Closes the connection."""
+        if self.tunnel:
+            self.tunnel.close()
         self._sftp_client = None
         self._scp_transfer_client = None
         self._scp_all_client = None
@@ -248,8 +371,8 @@ class AbstractSSHClient(ABC):
         :param read_config: reads or ignores host entries from ``~/.ssh/config`` file. This parameter will read the hostname,
         port number, username and proxy command.
 
-        :param PythonSSHClient jumphost_connection : An instance of
-            PythonSSHClient that will be used as an intermediary jump-host
+        :param SSHClient jumphost_connection : An instance of
+            SSHClient that will be used as an intermediary jump-host
             for the SSH connection being attempted.
 
         :raises SSHClientException: If logging in failed.
@@ -290,19 +413,81 @@ class AbstractSSHClient(ABC):
     def _decode(self, bytes):
         return bytes.decode(self.config.encoding, self.config.encoding_errors)
 
-    @abstractmethod
     def _login(
         self,
         username,
         password,
-        allow_agent,
-        look_for_keys,
-        proxy_cmd,
-        read_config,
-        jumphost_connection,
-        keep_alive_interval,
+        allow_agent=False,
+        look_for_keys=False,
+        proxy_cmd=None,
+        read_config=False,
+        jumphost_connection=None,
+        keep_alive_interval=None,
     ):
-        raise NotImplementedError
+        if read_config:
+            hostname = self.config.host
+            self.config.host, username, self.config.port, proxy_cmd = (
+                self._read_login_ssh_config(
+                    hostname, username, self.config.port, proxy_cmd
+                )
+            )
+
+        sock_tunnel = None
+
+        if proxy_cmd and jumphost_connection:
+            raise ValueError(
+                "`proxy_cmd` and `jumphost_connection` are mutually exclusive SSH features."
+            )
+        elif proxy_cmd:
+            sock_tunnel = paramiko.ProxyCommand(proxy_cmd)
+        elif jumphost_connection:
+            sock_tunnel = self._get_jumphost_tunnel(jumphost_connection)
+        try:
+            if not password and not allow_agent:
+                # If no password is given, try login without authentication
+                try:
+                    self.client.connect(
+                        self.config.host,
+                        self.config.port,
+                        username,
+                        password,
+                        look_for_keys=look_for_keys,
+                        allow_agent=allow_agent,
+                        timeout=float(self.config.timeout),
+                        sock=sock_tunnel,
+                    )
+                except paramiko.SSHException:
+                    pass
+                transport = self.client.get_transport()
+                transport.set_keepalive(keep_alive_interval)
+                transport.auth_none(username)
+            else:
+                try:
+                    self.client.connect(
+                        self.config.host,
+                        self.config.port,
+                        username,
+                        password,
+                        look_for_keys=look_for_keys,
+                        allow_agent=allow_agent,
+                        timeout=float(self.config.timeout),
+                        sock=sock_tunnel,
+                    )
+                    transport = self.client.get_transport()
+                    transport.set_keepalive(keep_alive_interval)
+                except paramiko.AuthenticationException:
+                    try:
+                        transport = self.client.get_transport()
+                        transport.set_keepalive(keep_alive_interval)
+                        try:
+                            transport.auth_none(username)
+                        except Exception:
+                            pass
+                        transport.auth_password(username, password)
+                    except Exception:
+                        raise SSHClientException
+        except paramiko.AuthenticationException:
+            raise SSHClientException
 
     def _read_login_output(self, delay):
         if not self.config.prompt:
@@ -351,8 +536,8 @@ class AbstractSSHClient(ABC):
 
         :param str proxy_cmd : Proxy command
 
-        :param PythonSSHClient jumphost_connection : An instance of
-            PythonSSHClient that is will be used as an intermediary jump-host
+        :param SSHClient jumphost_connection : An instance of
+            SSHClient that is will be used as an intermediary jump-host
             for the SSH connection being attempted.
 
         :param read_config: reads or ignores entries from ``~/.ssh/config`` file. This parameter will read the hostname,
@@ -382,8 +567,8 @@ class AbstractSSHClient(ABC):
         except SSHClientException:
             self.client.close()
             raise SSHClientException(
-                "Login with public key failed for user "
-                "'%s'." % self._decode(username)
+                "Login with public key failed for user \"get_banner\"'%s'."
+                % self._decode(username)
             )
         return self._read_login_output(delay)
 
@@ -395,29 +580,91 @@ class AbstractSSHClient(ABC):
         except IOError:
             raise SSHClientException("Could not read key file '%s'." % keyfile)
 
-    @abstractmethod
     def _login_with_public_key(
         self,
         username,
-        keyfile,
+        key_file,
         password,
         allow_agent,
         look_for_keys,
-        proxy_cmd,
-        jumphost_index_or_alias,
-        read_config,
-        keep_alive_interval,
+        proxy_cmd=None,
+        jumphost_connection=None,
+        read_config=False,
+        keep_alive_interval=None,
     ):
-        raise NotImplementedError
+        if read_config:
+            hostname = self.config.host
+            self.config.host, username, self.config.port, key_file, proxy_cmd = (
+                self._read_public_key_ssh_config(
+                    hostname, username, self.config.port, proxy_cmd, key_file
+                )
+            )
 
-    @staticmethod
-    @abstractmethod
+        sock_tunnel = None
+        if key_file is not None:
+            if not os.path.exists(key_file):
+                raise SSHClientException(
+                    "Given key file '%s' does not exist." % key_file
+                )
+            try:
+                open(key_file).close()
+            except IOError:
+                raise SSHClientException("Could not read key file '%s'." % key_file)
+        else:
+            raise RuntimeError(
+                "Keyfile must be specified as keyword argument or in config file."
+            )
+        if proxy_cmd and jumphost_connection:
+            raise ValueError(
+                "`proxy_cmd` and `jumphost_connection` are mutually exclusive SSH features."
+            )
+        elif proxy_cmd:
+            sock_tunnel = paramiko.ProxyCommand(proxy_cmd)
+        elif jumphost_connection:
+            sock_tunnel = self._get_jumphost_tunnel(jumphost_connection)
+
+        try:
+            self.client.connect(
+                self.config.host,
+                self.config.port,
+                username,
+                password,
+                key_filename=key_file,
+                allow_agent=allow_agent,
+                look_for_keys=look_for_keys,
+                timeout=float(self.config.timeout),
+                sock=sock_tunnel,
+            )
+            transport = self.client.get_transport()
+            transport.set_keepalive(keep_alive_interval)
+        except paramiko.AuthenticationException:
+            try:
+                transport = self.client.get_transport()
+                transport.set_keepalive(keep_alive_interval)
+                try:
+                    transport.auth_none(username)
+                except Exception:
+                    pass
+                transport.auth_publickey(username, None)
+            except Exception:
+                raise SSHClientException
+
+    staticmethod
+
     def get_banner_without_login(host, port=22):
-        raise NotImplementedError("Not supported on this Python interpreter.")
+        client = paramiko.SSHClient()
+        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        try:
+            client.connect(str(host), int(port), username="bad-username")
+        except paramiko.AuthenticationException:
+            return client.get_transport().get_banner()
+        except Exception:
+            raise SSHClientException(
+                "Unable to connect to port {} on {}".format(port, host)
+            )
 
-    @abstractmethod
     def get_banner(self):
-        raise NotImplementedError("Not supported on this Python interpreter.")
+        return self.client.get_transport().get_banner()
 
     def execute_command(
         self,
@@ -493,7 +740,6 @@ class AbstractSSHClient(ABC):
             )
         )
 
-    @abstractmethod
     def _start_command(
         self,
         command,
@@ -502,7 +748,17 @@ class AbstractSSHClient(ABC):
         invoke_subsystem=False,
         forward_agent=False,
     ):
-        raise NotImplementedError
+        cmd = RemoteCommand(command, self.config.encoding)
+        transport = self.client.get_transport()
+        if not transport:
+            raise AssertionError("Connection not open")
+        new_shell = transport.open_session(timeout=float(self.config.timeout))
+
+        if forward_agent:
+            paramiko.agent.AgentRequestHandler(new_shell)
+
+        cmd.run_in(new_shell, sudo, sudo_password, invoke_subsystem)
+        return cmd
 
     def read_command_output(
         self, timeout=None, output_during_execution=False, output_if_timeout=False
@@ -955,7 +1211,7 @@ class AbstractSSHClient(ABC):
             return self.sftp_client
 
 
-class AbstractShell(ABC):
+class Shell:
     """Base class for the shell implementation.
 
     Classes derived from this class (i.e. :py:class:`pythonclient.Shell`
@@ -963,33 +1219,49 @@ class AbstractShell(ABC):
     specific implementations for reading and writing in a shell session.
     """
 
-    @abstractmethod
+    def __init__(self, client, term_type, term_width, term_height):
+        try:
+            self._shell = client.invoke_shell(term_type, term_width, term_height)
+        except AttributeError:
+            raise RuntimeError(
+                "Cannot open session, you need to establish a connection first."
+            )
+
     def read(self):
         """Reads all the output from the shell.
 
         :returns: The read output.
         """
-        raise NotImplementedError
+        data = b""
+        while self._output_available():
+            data += self._shell.recv(4096)
+        return data
 
-    @abstractmethod
     def read_byte(self):
         """Reads a single byte from the shell.
 
         :returns: The read byte.
         """
-        raise NotImplementedError
+        if self._output_available():
+            return self._shell.recv(1)
+        return b""
 
-    @abstractmethod
+    def resize(self, width, height):
+        self._shell.resize_pty(width=width, height=height)
+
+    def _output_available(self):
+        return self._shell.recv_ready()
+
     def write(self, text):
         """Writes the `text` in the current shell.
 
         :param str text: The text to be written. No newline characters are
             be appended automatically to the written text by this method.
         """
-        raise NotImplementedError
+        self._shell.sendall(text)
 
 
-class AbstractSFTPClient(ABC):
+class SFTPClient:
     """Base class for the SFTP implementation.
 
     Classes derived from this class (i.e. :py:class:`pythonclient.SFTPClient`
@@ -998,13 +1270,21 @@ class AbstractSFTPClient(ABC):
     directories.
     """
 
-    def __init__(self, encoding):
+    def __init__(self, ssh_client, encoding):
+        self.ssh_client = ssh_client
+        self._client = ssh_client.open_sftp()
         self._encoding = encoding
         self._homedir = self._absolute_path(b".")
 
-    @abstractmethod
     def _absolute_path(self, path):
-        raise NotImplementedError
+        if not self._is_windows_path(path):
+            path = self._client.normalize(path)
+        if is_bytes(path):
+            path = path.decode(self._encoding)
+        return path
+
+    def _is_windows_path(self, path):
+        return bool(ntpath.splitdrive(path)[0])
 
     def is_file(self, path):
         """Checks if the `path` points to a regular file on the remote host.
@@ -1022,9 +1302,10 @@ class AbstractSFTPClient(ABC):
             return False
         return item.is_regular()
 
-    @abstractmethod
     def _stat(self, path):
-        raise NotImplementedError
+        path = path.encode(self._encoding)
+        attributes = self._client.stat(path)
+        return SFTPFileInfo("", attributes.st_mode)
 
     def is_dir(self, path):
         """Checks if the `path` points to a directory on the remote host.
@@ -1082,7 +1363,12 @@ class AbstractSFTPClient(ABC):
         return [item.name for item in self._list(path)]
 
     def _list(self, path):
-        raise NotImplementedError
+        path = path.encode(self._encoding)
+        for item in self._client.listdir_attr(path):
+            filename = item.filename
+            if is_bytes(filename):
+                filename = filename.decode(self._encoding)
+            yield SFTPFileInfo(filename, item.st_mode)
 
     def _filter_by_pattern(self, items, pattern):
         return [name for name in items if fnmatchcase(name, pattern)]
@@ -1311,9 +1597,9 @@ class AbstractSFTPClient(ABC):
         if not os.path.exists(destination):
             os.makedirs(destination)
 
-    @abstractmethod
-    def _get_file(self, source, destination, scp_preserve_times):
-        raise NotImplementedError
+    def _get_file(self, remote_path, local_path, scp_preserve_times):
+        remote_path = remote_path.encode(self._encoding)
+        self._client.get(remote_path, local_path)
 
     def put_directory(
         self,
@@ -1519,6 +1805,8 @@ class AbstractSFTPClient(ABC):
         return destination.rsplit(path_separator, 1)
 
     def _create_missing_remote_path(self, path, mode):
+        if str(path):
+            path = path.encode(self._encoding)
         if path.startswith(b"/"):
             current_dir = b"/"
         else:
@@ -1557,28 +1845,44 @@ class AbstractSFTPClient(ABC):
                 position += len(data)
             self._close_remote_file(remote_file)
 
-    @abstractmethod
     def _create_remote_file(self, destination, mode):
-        raise NotImplementedError
+        file_exists = self.is_file(destination)
+        destination = destination.encode(self._encoding)
+        remote_file = self._client.file(destination, "wb")
+        remote_file.set_pipelined(True)
+        if not file_exists and mode:
+            self._client.chmod(destination, mode)
+        return remote_file
 
-    @abstractmethod
     def _write_to_remote_file(self, remote_file, data, position):
-        raise NotImplementedError
+        remote_file.write(data)
 
-    @abstractmethod
     def _close_remote_file(self, remote_file):
-        raise NotImplementedError
+        remote_file.close()
 
-    @abstractmethod
-    def create_local_ssh_tunnel(self, local_port, remote_host, remote_port, client):
-        raise NotImplementedError
+    def create_local_ssh_tunnel(
+        self, local_port, remote_host, remote_port, bind_address
+    ):
+        self._create_local_port_forwarder(
+            local_port, remote_host, remote_port, bind_address
+        )
 
-    @abstractmethod
+    def _create_local_port_forwarder(
+        self, local_port, remote_host, remote_port, bind_address
+    ):
+        transport = self.client.get_transport()
+        if not transport:
+            raise AssertionError("Connection not open")
+        self.tunnel = LocalPortForwarding(
+            int(remote_port), remote_host, transport, bind_address
+        )
+        self.tunnel.forward(int(local_port))
+
     def _readlink(self, path):
-        raise NotImplementedError
+        return self._client.readlink(path)
 
 
-class AbstractCommand(ABC):
+class RemoteCommand:
     """Base class for the remote command.
 
     Classes derived from this class (i.e. :py:class:`pythonclient.RemoteCommand`
@@ -1612,21 +1916,119 @@ class AbstractCommand(ABC):
             self._execute_with_sudo(sudo_password)
 
     def _execute(self):
-        raise NotImplementedError
+        self._shell.exec_command(self._command)
 
     def _invoke(self):
-        raise NotImplementedError
+        self._shell.invoke_subsystem(self._command)
 
     def _execute_with_sudo(self, sudo_password=None):
-        raise NotImplementedError
+        command = "sudo " + self._command.decode(self._encoding)
+        if sudo_password is None:
+            self._shell.exec_command(command)
+        else:
+            self._shell.exec_command(
+                'echo %s | sudo --stdin --prompt "" %s' % (sudo_password, command)
+            )
 
-    def read_outputs(self):
+    def read_outputs(
+        self, timeout=None, output_during_execution=False, output_if_timeout=False
+    ):
         """Returns the outputs of this command.
 
         :returns: A 3-tuple (stdout, stderr, return_code) with values
             `stdout` and `stderr` as strings and `return_code` as an integer.
         """
-        raise NotImplementedError
+        stderr, stdout = self._receive_stdout_and_stderr(
+            timeout, output_during_execution, output_if_timeout
+        )
+        rc = self._shell.recv_exit_status()
+        self._shell.close()
+        return stdout, stderr, rc
+
+    def _receive_stdout_and_stderr(
+        self, timeout=None, output_during_execution=False, output_if_timeout=False
+    ):
+        stdout_filebuffer = self._shell.makefile("rb", -1)
+        stderr_filebuffer = self._shell.makefile_stderr("rb", -1)
+        stdouts = []
+        stderrs = []
+        while self._shell_open():
+            self._flush_stdout_and_stderr(
+                stderr_filebuffer,
+                stderrs,
+                stdout_filebuffer,
+                stdouts,
+                timeout,
+                output_during_execution,
+                output_if_timeout,
+            )
+            time.sleep(0.01)  # lets not be so busy
+        stdout = (b"".join(stdouts) + stdout_filebuffer.read()).decode(self._encoding)
+        stderr = (b"".join(stderrs) + stderr_filebuffer.read()).decode(self._encoding)
+        return stderr, stdout
+
+    def _shell_open(self):
+        return not (
+            self._shell.closed
+            or self._shell.eof_received
+            or self._shell.eof_sent
+            or not self._shell.active
+        )
+
+    def _flush_stdout_and_stderr(
+        self,
+        stderr_filebuffer,
+        stderrs,
+        stdout_filebuffer,
+        stdouts,
+        timeout=None,
+        output_during_execution=False,
+        output_if_timeout=False,
+    ):
+        if timeout:
+            end_time = time.time() + timeout
+            while time.time() < end_time:
+                if self._shell.status_event.wait(0):
+                    break
+                self._output_logging(
+                    stderr_filebuffer,
+                    stderrs,
+                    stdout_filebuffer,
+                    stdouts,
+                    output_during_execution,
+                )
+            if not self._shell.status_event.isSet():
+                if is_truthy(output_if_timeout):
+                    logger.info(stdouts)
+                    logger.info(stderrs)
+                raise SSHClientException("Timed out in %s seconds" % int(timeout))
+        else:
+            self._output_logging(
+                stderr_filebuffer,
+                stderrs,
+                stdout_filebuffer,
+                stdouts,
+                output_during_execution,
+            )
+
+    def _output_logging(
+        self,
+        stderr_filebuffer,
+        stderrs,
+        stdout_filebuffer,
+        stdouts,
+        output_during_execution=False,
+    ):
+        if self._shell.recv_ready():
+            stdout_output = stdout_filebuffer.read(len(self._shell.in_buffer))
+            if is_truthy(output_during_execution):
+                logger.console(stdout_output)
+            stdouts.append(stdout_output)
+        if self._shell.recv_stderr_ready():
+            stderr_output = stderr_filebuffer.read(len(self._shell.in_stderr_buffer))
+            if is_truthy(output_during_execution):
+                logger.console(stderr_output)
+            stderrs.append(stderr_output)
 
 
 class SFTPFileInfo(object):
@@ -1659,3 +2061,65 @@ class SFTPFileInfo(object):
         :returns: `True`, if the file is a symlink file. False otherwise.
         """
         return stat.S_ISLNK(self.mode)
+
+
+class SCPClient:
+    def __init__(self, ssh_client):
+        self._scp_client = scp.SCPClient(ssh_client.get_transport())
+
+    def put_file(self, source, destination, scp_preserve_times, *args):
+        sources = self._get_put_file_sources(source)
+        self._scp_client.put(
+            sources, destination, preserve_times=is_truthy(scp_preserve_times)
+        )
+
+    def get_file(self, source, destination, scp_preserve_times, *args):
+        self._scp_client.get(
+            source, destination, preserve_times=is_truthy(scp_preserve_times)
+        )
+
+    def put_directory(self, source, destination, scp_preserve_times, *args):
+        self._scp_client.put(
+            source, destination, True, preserve_times=is_truthy(scp_preserve_times)
+        )
+
+    def get_directory(self, source, destination, scp_preserve_times, *args):
+        self._scp_client.get(
+            source, destination, True, preserve_times=is_truthy(scp_preserve_times)
+        )
+
+    def _get_put_file_sources(self, source):
+        source = source.replace("/", os.sep)
+        if not os.path.exists(source):
+            sources = [f for f in glob.glob(source)]
+        else:
+            sources = [f for f in [source]]
+        if not sources:
+            msg = "There are no source files matching '%s'." % source
+            raise SSHClientException(msg)
+        return sources
+
+
+class SCPTransferClient(SFTPClient):
+    def __init__(self, ssh_client, encoding):
+        self._scp_client = scp.SCPClient(ssh_client.get_transport())
+        super(SCPTransferClient, self).__init__(ssh_client, encoding)
+
+    def _put_file(
+        self,
+        source,
+        destination,
+        mode,
+        newline,
+        path_separator,
+        scp_preserve_times=False,
+    ):
+        self._create_remote_file(destination, mode)
+        self._scp_client.put(
+            source, destination, preserve_times=is_truthy(scp_preserve_times)
+        )
+
+    def _get_file(self, remote_path, local_path, scp_preserve_times=False):
+        self._scp_client.get(
+            remote_path, local_path, preserve_times=is_truthy(scp_preserve_times)
+        )
