@@ -6,7 +6,7 @@ import re
 import stat
 from fnmatch import fnmatchcase
 
-from robot.utils import is_bytes
+from robot.utils import is_bytes  # type: ignore
 
 from .exceptions import SFTPClientException
 from .pythonforward import LocalPortForwarding

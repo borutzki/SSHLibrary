@@ -1,7 +1,7 @@
 import glob
 import os
 
-from robot.utils import is_truthy
+from robot.utils import is_truthy  # type: ignore
 
 from .exceptions import SCPClientException
 from .sftp import SFTPClient
