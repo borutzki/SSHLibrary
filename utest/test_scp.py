@@ -1,7 +1,7 @@
 import os
 import unittest
 
-from SSHLibrary.modules.ssh_client import SSHClient, SFTPClient
+from SSHLibrary.modules.ssh_client import SFTPClient, SSHClient
 
 SFTPClient._absolute_path = lambda obj, path: "/home"
 

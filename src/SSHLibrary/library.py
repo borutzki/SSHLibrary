@@ -17,10 +17,9 @@
 import re
 
 from robot.api import logger
+from robot.api.deco import keyword, library
+from robot.utils import is_string, is_truthy, plural_or_not  # type: ignore
 
-from .modules.sshconnectioncache import SSHConnectionCache
-from .modules.exceptions import SSHClientException
-from .modules.ssh_client import SSHClient
 from .modules.config import (
     Configuration,
     IntegerEntry,
@@ -29,9 +28,10 @@ from .modules.config import (
     StringEntry,
     TimeEntry,
 )
-from robot.utils import is_string, is_truthy, plural_or_not  # type: ignore
+from .modules.exceptions import SSHClientException
+from .modules.ssh_client import SSHClient
+from .modules.sshconnectioncache import SSHConnectionCache
 from .version import VERSION
-from robot.api.deco import library, keyword
 
 # TODO: Add typehints to all methods and attributes
 

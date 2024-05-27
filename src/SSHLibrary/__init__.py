@@ -13,9 +13,8 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-from .modules.ssh_client import SSHClient  # noqa: F401
 from .library import SSHLibrary  # noqa: F401
+from .modules.ssh_client import SSHClient  # noqa: F401
 from .version import VERSION
-
 
 __version__ = VERSION

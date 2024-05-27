@@ -2,8 +2,7 @@
 
 import sys
 from os.path import abspath, dirname, join
-from unittest import defaultTestLoader, TextTestRunner
-
+from unittest import TextTestRunner, defaultTestLoader
 
 CURDIR = dirname(abspath(__file__))
 

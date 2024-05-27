@@ -1,9 +1,9 @@
 import select
 import socket
-import threading
-from robot.api import logger
-
 import socketserver as SocketServer
+import threading
+
+from robot.api import logger
 
 
 # TODO: Analyze the code and add documentation

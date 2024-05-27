@@ -3,9 +3,8 @@ from pathlib import Path
 
 from docutils.core import publish_cmdline
 from invoke import task
-from rellu import initialize_labels, ReleaseNotesGenerator, Version
+from rellu import ReleaseNotesGenerator, Version, initialize_labels
 from robot.libdoc import libdoc
-
 
 assert Path.cwd() == Path(__file__).parent
 

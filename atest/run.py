@@ -13,13 +13,12 @@ Example:
     python atest/run.py --variable=HOST:::1 atest
 """
 
-import sys
 import os
-
+import sys
 from os.path import abspath, dirname, join
-from robot import run_cli, rebot
-from robotstatuschecker import process_output
 
+from robot import rebot, run_cli
+from robotstatuschecker import process_output
 
 CURDIR = dirname(abspath(__file__))
 OUTPUT_ROOT = join(CURDIR, "results")

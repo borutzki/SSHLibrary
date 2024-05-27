@@ -13,13 +13,16 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+from typing import Any
+
 from robot.utils import (  # type: ignore
     is_bytes,
     secs_to_timestr,
     timestr_to_secs,
 )
-from typing import Any
+
 from .exceptions import ConfigurationException
+
 # TODO: Use ABC
 
 

@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 
 from os.path import abspath, dirname, join
+
 from setuptools import setup
+
 from src.SSHLibrary.version import VERSION
 
 CURDIR = dirname(abspath(__file__))

@@ -2,7 +2,6 @@ import unittest
 
 from SSHLibrary import SSHLibrary
 
-
 HOSTNAME = "localhost"
 
 
