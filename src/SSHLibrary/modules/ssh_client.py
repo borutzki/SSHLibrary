@@ -32,6 +32,7 @@ from .exceptions import SSHClientException
 from .scp_handlers import SCPClient, SCPTransferClient
 from .sftp import SFTPClient
 from .shell import Shell
+from pathlib import Path
 
 try:
     import paramiko
@@ -107,12 +108,7 @@ class _ClientConfiguration(Configuration):
 
 
 class SSHClient:
-    """Base class for the SSH client implementation.
-
-    This class defines the public API. Subclasses (:py:class:`pythonclient.
-    SSHClient` and :py:class:`javaclient.JavaSSHClient`) provide the
-    language specific concrete implementations.
-    """
+    """Implementation of SSH client based on `paramiko`."""
 
     tunnel = None
 
@@ -147,22 +143,35 @@ class SSHClient:
             escape_ansi,
             encoding_errors,
         )
-        self._sftp_client = None
+        self._sftp_client: SFTPClient | None = None
         self._scp_transfer_client = None
         self._scp_all_client = None
         self._shell = None
         self._started_commands = []
-        self.client = self._get_client()
+        self.client = self.create_client()
         self.width = width
         self.height = height
 
-    def _get_client(self):
+    @staticmethod
+    def create_client() -> paramiko.SSHClient:
+        """Returns `SSHClient` with predefined policy to automatically add missing host keys."""
         client = paramiko.SSHClient()
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         return client
 
+    @property
+    def sftp_client(self) -> SFTPClient:
+        """Gets the SFTP client for the connection.
+
+        :returns: An object of the class that inherits from
+            :py:class:`AbstractSFTPClient`.
+        """
+        if not self._sftp_client:
+            self._sftp_client = SFTPClient(self.client, self.config.encoding)
+        return self._sftp_client
+
     @staticmethod
-    def enable_logging(path):
+    def enable_logging(path: Path):
         """Enables logging of SSH events to a file.
 
         :param str path: Path to the file the log is written to.
@@ -171,17 +180,6 @@ class SSHClient:
         """
         paramiko.util.log_to_file(path)
         return True
-
-    @property
-    def sftp_client(self):
-        """Gets the SFTP client for the connection.
-
-        :returns: An object of the class that inherits from
-            :py:class:`AbstractSFTPClient`.
-        """
-        if not self._sftp_client:
-            self._sftp_client = self._create_sftp_client()
-        return self._sftp_client
 
     @staticmethod
     def _read_login_ssh_config(host, username, port_number, proxy_cmd):
@@ -262,54 +260,47 @@ class SSHClient:
         return jumphost_transport.open_channel("direct-tcpip", dest_addr, jump_addr)
 
     @property
-    def scp_transfer_client(self):
+    def scp_transfer_client(self) -> SCPTransferClient:
         """Gets the SCP client for the file transfer.
 
         :returns: An object of the class that inherits from
             :py:class:`SFTPClient`.
         """
         if not self._scp_transfer_client:
-            self._scp_transfer_client = self._create_scp_transfer_client()
+            self._scp_transfer_client = SCPTransferClient(
+                self.client, self.config.encoding
+            )
         return self._scp_transfer_client
 
     @property
-    def scp_all_client(self):
+    def scp_all_client(self) -> SCPClient:
         """Gets the SCP client for the file transfer.
 
         :returns: An object of the class type
             :py:class:`SCPClient`.
         """
         if not self._scp_all_client:
-            self._scp_all_client = self._create_scp_all_client()
+            self._scp_all_client = SCPClient(self.client)
         return self._scp_all_client
 
     @property
-    def shell(self):
+    def shell(self) -> Shell:
         """Gets the shell for the connection.
 
         :returns: An object of the class that inherits from
             :py:class:`AbstractShell`.
         """
         if not self._shell:
-            self._shell = self._create_shell()
+            self._shell = Shell(
+                self.client,
+                self.config.term_type,
+                self.config.width,
+                self.config.height,
+            )
         if self.width != self.config.width or self.height != self.config.height:
             self._shell.resize(self.config.width, self.config.height)
             self.width, self.height = self.config.width, self.config.height
         return self._shell
-
-    def _create_sftp_client(self):
-        return SFTPClient(self.client, self.config.encoding)
-
-    def _create_scp_transfer_client(self):
-        return SCPTransferClient(self.client, self.config.encoding)
-
-    def _create_scp_all_client(self):
-        return SCPClient(self.client)
-
-    def _create_shell(self):
-        return Shell(
-            self.client, self.config.term_type, self.config.width, self.config.height
-        )
 
     def close(self):
         """Closes the connection."""
@@ -320,10 +311,6 @@ class SSHClient:
         self._scp_all_client = None
         self._shell = None
         self.client.close()
-        try:
-            logger.log_background_messages()
-        except AttributeError:
-            pass
 
     def login(
         self,
@@ -398,12 +385,11 @@ class SSHClient:
             )
         return self._read_login_output(delay)
 
-    def _encode(self, text):
-        if is_bytes(text):
+    def _encode(self, text: str | bytes | bytearray) -> bytes:
+        if isinstance(text, (bytes, bytearray)):
             return text
-        if not is_string(text):
-            text = unicode(text)
-        return text.encode(self.config.encoding, self.config.encoding_errors)
+        if not isinstance(text, str):
+            return text.encode(self.config.encoding, self.config.encoding_errors)
 
     def _decode(self, bytes):
         return bytes.decode(self.config.encoding, self.config.encoding_errors)
