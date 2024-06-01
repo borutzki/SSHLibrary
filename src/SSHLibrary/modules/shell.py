@@ -1,4 +1,4 @@
-from paramiko import SSHClient, Channel
+from paramiko import SSHClient, Channel, SSHException
 
 
 class Shell:
@@ -11,7 +11,7 @@ class Shell:
             self._shell: Channel = client.invoke_shell(
                 term_type, term_width, term_height
             )
-        except AttributeError:
+        except (AttributeError, SSHException):
             raise RuntimeError(
                 "Cannot open session, you need to establish a connection first."
             )

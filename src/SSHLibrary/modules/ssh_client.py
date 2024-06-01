@@ -546,7 +546,7 @@ class SSHClient:
                 read_config,
                 keep_alive_interval,
             )
-        except SSHClientException:
+        except (SSHClientException, ValueError):
             self.client.close()
             raise SSHClientException(
                 "Login with public key failed for user \"get_banner\"'%s'."
