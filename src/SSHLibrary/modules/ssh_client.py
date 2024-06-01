@@ -1019,7 +1019,7 @@ class SSHClient:
 
         See :py:meth:`AbstractSFTPClient.put_file` for more documentation.
         """
-        client = self._create_client(scp)
+        client = self.get_transfer_client(scp)
         return client.put_file(
             source,
             destination,
@@ -1047,7 +1047,7 @@ class SSHClient:
 
         See :py:meth:`AbstractSFTPClient.put_directory` for more documentation.
         """
-        client = self._create_client(scp)
+        client = self.get_transfer_client(scp)
         return client.put_directory(
             source,
             destination,
@@ -1064,7 +1064,7 @@ class SSHClient:
 
         See :py:meth:`AbstractSFTPClient.get_file` for more documentation.
         """
-        client = self._create_client(scp)
+        client = self.get_transfer_client(scp)
         if scp == "ALL":
             sources = self._get_files_for_scp_all(source)
             return client.get_file(
@@ -1096,7 +1096,7 @@ class SSHClient:
 
         See :py:meth:`AbstractSFTPClient.get_directory` for more documentation.
         """
-        client = self._create_client(scp)
+        client = self.get_transfer_client(scp)
         return client.get_directory(
             source,
             destination,
@@ -1184,7 +1184,10 @@ class SSHClient:
                     return self.sftp_client.is_file(file_dir + filename)
         return self.sftp_client.is_file(path)
 
-    def _create_client(self, scp):
+    def get_transfer_client(
+        self, scp: str
+    ) -> SCPClient | SCPTransferClient | SFTPClient:
+        """Dispatcher method that returns SCP or SFTP client based on provided `scp` option."""
         if scp.upper() == "ALL":
             return self.scp_all_client
         elif scp.upper() == "TRANSFER":
