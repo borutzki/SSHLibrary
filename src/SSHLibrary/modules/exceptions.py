@@ -24,3 +24,9 @@ class SCPClientException(SSHClientException):
     """Raised by SCPClient."""
 
     pass
+
+
+class RemoteCommandException(SSHClientException):
+    """Raised by RemoteCommand class."""
+
+    pass
