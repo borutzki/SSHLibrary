@@ -7,9 +7,43 @@ import stat
 from fnmatch import fnmatchcase
 
 from robot.utils import is_bytes  # type: ignore
-
+import paramiko
 from .exceptions import SFTPClientException
 from .pythonforward import LocalPortForwarding
+from pathlib import Path
+from typing import Generator, Any
+
+
+class SFTPFileInfo:
+    """Wrapper class for the language specific file information objects.
+
+    Returned by the concrete SFTP client implementations.
+    """
+
+    def __init__(self, name: str, mode: int) -> None:
+        self.name: str = name
+        self.mode: int = mode
+
+    def is_regular(self) -> bool:
+        """Checks if this file is a regular file.
+
+        :returns: `True`, if the file is a regular file. False otherwise.
+        """
+        return stat.S_ISREG(self.mode)
+
+    def is_directory(self) -> bool:
+        """Checks if this file is a directory.
+
+        :returns: `True`, if the file is a regular file. False otherwise.
+        """
+        return stat.S_ISDIR(self.mode)
+
+    def is_link(self) -> bool:
+        """Checks if this file is a symbolic link.
+
+        :returns: `True`, if the file is a symlink file. False otherwise.
+        """
+        return stat.S_ISLNK(self.mode)
 
 
 class SFTPClient:
@@ -21,11 +55,11 @@ class SFTPClient:
     directories.
     """
 
-    def __init__(self, ssh_client, encoding):
-        self.ssh_client = ssh_client
-        self._client = ssh_client.open_sftp()
-        self._encoding = encoding
-        self._homedir = self._absolute_path(b".")
+    def __init__(self, ssh_client: paramiko.SSHClient, encoding: str) -> None:
+        self.ssh_client: paramiko.SSHClient = ssh_client
+        self._client: paramiko.SFTPClient = ssh_client.open_sftp()
+        self._encoding: str = encoding
+        self._homedir = Path(".").absolute()
 
     def _absolute_path(self, path):
         if not self._is_windows_path(path):
@@ -37,7 +71,7 @@ class SFTPClient:
     def _is_windows_path(self, path):
         return bool(ntpath.splitdrive(path)[0])
 
-    def is_file(self, path):
+    def is_file(self, path: str) -> bool:
         """Checks if the `path` points to a regular file on the remote host.
 
         If the `path` is a symlink, its destination is checked instead.
@@ -53,12 +87,12 @@ class SFTPClient:
             return False
         return item.is_regular()
 
-    def _stat(self, path):
+    def _stat(self, path: str) -> SFTPFileInfo:
         path = path.encode(self._encoding)
         attributes = self._client.stat(path)
         return SFTPFileInfo("", attributes.st_mode)
 
-    def is_dir(self, path):
+    def is_dir(self, path: str) -> bool:
         """Checks if the `path` points to a directory on the remote host.
 
         If the `path` is a symlink, its destination is checked instead.
@@ -74,7 +108,9 @@ class SFTPClient:
             return False
         return item.is_directory()
 
-    def list_dir(self, path, pattern=None, absolute=False):
+    def list_dir(
+        self, path: str, pattern: str | None = None, absolute: bool = False
+    ) -> list:
         """Gets the item names, or optionally the absolute paths, on the given
         `path` on the remote host.
 
@@ -97,7 +133,13 @@ class SFTPClient:
         """
         return self._list_filtered(path, self._get_item_names, pattern, absolute)
 
-    def _list_filtered(self, path, filter_method, pattern=None, absolute=False):
+    def _list_filtered(
+        self,
+        path: str,
+        filter_method,
+        pattern: str | None = None,
+        absolute: bool = False,
+    ):
         self._verify_remote_dir_exists(path)
         items = filter_method(path)
         if pattern:
@@ -106,14 +148,14 @@ class SFTPClient:
             items = self._include_absolute_path(items, path)
         return items
 
-    def _verify_remote_dir_exists(self, path):
+    def _verify_remote_dir_exists(self, path: str) -> None:
         if not self.is_dir(path):
             raise SFTPClientException("There was no directory matching '%s'." % path)
 
-    def _get_item_names(self, path):
+    def _get_item_names(self, path: str) -> list:
         return [item.name for item in self._list(path)]
 
-    def _list(self, path):
+    def _list(self, path: str) -> Generator[SFTPFileInfo, Any, Any]:
         path = path.encode(self._encoding)
         for item in self._client.listdir_attr(path):
             filename = item.filename
@@ -132,7 +174,9 @@ class SFTPClient:
             absolute_path += "/"
         return [absolute_path + name for name in items]
 
-    def list_files_in_dir(self, path, pattern=None, absolute=False):
+    def list_files_in_dir(
+        self, path: str, pattern: str | None = None, absolute: bool = False
+    ):
         """Gets the file names, or optionally the absolute paths, of the regular
                 files on the given `path` on the remote host.
         .
@@ -152,7 +196,7 @@ class SFTPClient:
         """
         return self._list_filtered(path, self._get_file_names, pattern, absolute)
 
-    def _get_file_names(self, path):
+    def _get_file_names(self, path: str) -> list:
         return [
             item.name
             for item in self._list(path)
@@ -160,7 +204,7 @@ class SFTPClient:
             or (item.is_link() and not self._is_dir_symlink(path, item.name))
         ]
 
-    def _is_dir_symlink(self, path, item):
+    def _is_dir_symlink(self, path, item) -> bool:
         resolved_link = self._readlink("%s/%s" % (path, item))
         return self.is_dir("%s/%s" % (path, resolved_link))
 
@@ -184,7 +228,7 @@ class SFTPClient:
         """
         return self._list_filtered(path, self._get_directory_names, pattern, absolute)
 
-    def _get_directory_names(self, path):
+    def _get_directory_names(self, path: str):
         return [item.name for item in self._list(path) if item.is_directory()]
 
     def get_directory(
@@ -451,13 +495,13 @@ class SFTPClient:
 
     def put_file(
         self,
-        sources,
-        destination,
-        scp_preserve_times,
-        mode,
-        newline,
-        path_separator="/",
-    ):
+        sources: str,
+        destination: str,
+        scp_preserve_times: bool,
+        mode: str,
+        newline: str,
+        path_separator: str = "/",
+    ) -> list:
         r"""Uploads the file(s) from the local machine to the remote host.
 
         :param str sources: Must be the path to an existing file on the remote
@@ -504,7 +548,7 @@ class SFTPClient:
             )
         return files
 
-    def _get_put_file_sources(self, source):
+    def _get_put_file_sources(self, source: str) -> list:
         source = source.replace("/", os.sep)
         if not os.path.exists(source):
             sources = [f for f in glob.glob(source)]
@@ -629,37 +673,5 @@ class SFTPClient:
         )
         self.tunnel.forward(int(local_port))
 
-    def _readlink(self, path):
+    def _readlink(self, path: str):
         return self._client.readlink(path)
-
-
-class SFTPFileInfo(object):
-    """Wrapper class for the language specific file information objects.
-
-    Returned by the concrete SFTP client implementations.
-    """
-
-    def __init__(self, name, mode):
-        self.name = name
-        self.mode = mode
-
-    def is_regular(self):
-        """Checks if this file is a regular file.
-
-        :returns: `True`, if the file is a regular file. False otherwise.
-        """
-        return stat.S_ISREG(self.mode)
-
-    def is_directory(self):
-        """Checks if this file is a directory.
-
-        :returns: `True`, if the file is a regular file. False otherwise.
-        """
-        return stat.S_ISDIR(self.mode)
-
-    def is_link(self):
-        """Checks if this file is a symbolic link.
-
-        :returns: `True`, if the file is a symlink file. False otherwise.
-        """
-        return stat.S_ISLNK(self.mode)
