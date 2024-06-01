@@ -15,7 +15,7 @@
 
 
 import re
-
+from pathlib import Path
 from robot.api import logger
 from robot.api.deco import keyword, library
 from robot.utils import is_string, is_truthy, plural_or_not  # type: ignore
@@ -634,7 +634,7 @@ class SSHLibrary:
         )
 
     @keyword("Enable SSH Logging")
-    def enable_ssh_logging(self, logfile):
+    def enable_ssh_logging(self, logfile: Path) -> None:
         """Enables logging of SSH protocol output to given ``logfile``.
 
         All the existing and upcoming connections are logged onwards from

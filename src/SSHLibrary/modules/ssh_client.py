@@ -18,12 +18,9 @@ import os
 import re
 import time
 
-from robot.api import logger
 from robot.utils import (  # type: ignore
-    is_bytes,
     is_list_like,
     is_string,
-    unicode,
 )
 
 from .command import RemoteCommand
@@ -144,21 +141,25 @@ class SSHClient:
             encoding_errors,
         )
         self._sftp_client: SFTPClient | None = None
-        self._scp_transfer_client = None
-        self._scp_all_client = None
-        self._shell = None
+        self._scp_transfer_client: SCPTransferClient | None = None
+        self._scp_all_client: SCPClient | None = None
+        self._shell: Shell | None = None
         self._started_commands = []
-        self.client = self.create_client()
-        self.width = width
-        self.height = height
+        self.client: SSHClient = self.create_client()
+        self.width: int = width
+        self.height: int = height
 
+    # Initialization
     @staticmethod
     def create_client() -> paramiko.SSHClient:
-        """Returns `SSHClient` with predefined policy to automatically add missing host keys."""
+        """Returns `SSHClient` with predefined policy to automatically add missing host keys.
+
+        This method shall be used once in the whole lifecycle of the class."""
         client = paramiko.SSHClient()
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         return client
 
+    # Properties
     @property
     def sftp_client(self) -> SFTPClient:
         """Gets the SFTP client for the connection.
@@ -169,6 +170,49 @@ class SSHClient:
         if not self._sftp_client:
             self._sftp_client = SFTPClient(self.client, self.config.encoding)
         return self._sftp_client
+
+    @property
+    def scp_transfer_client(self) -> SCPTransferClient:
+        """Gets the SCP client for the file transfer.
+
+        :returns: An object of the class that inherits from
+            :py:class:`SFTPClient`.
+        """
+        if not self._scp_transfer_client:
+            self._scp_transfer_client = SCPTransferClient(
+                self.client, self.config.encoding
+            )
+        return self._scp_transfer_client
+
+    @property
+    def scp_all_client(self) -> SCPClient:
+        """Gets the SCP client for the file transfer.
+
+        :returns: An object of the class type
+            :py:class:`SCPClient`.
+        """
+        if not self._scp_all_client:
+            self._scp_all_client = SCPClient(self.client)
+        return self._scp_all_client
+
+    @property
+    def shell(self) -> Shell:
+        """Gets the shell for the connection.
+
+        :returns: An object of the class that inherits from
+            :py:class:`AbstractShell`.
+        """
+        if not self._shell:
+            self._shell = Shell(
+                self.client,
+                self.config.term_type,
+                self.config.width,
+                self.config.height,
+            )
+        if self.width != self.config.width or self.height != self.config.height:
+            self._shell.resize(self.config.width, self.config.height)
+            self.width, self.height = self.config.width, self.config.height
+        return self._shell
 
     @staticmethod
     def enable_logging(path: Path):
@@ -258,49 +302,6 @@ class SSHClient:
                 )
             )
         return jumphost_transport.open_channel("direct-tcpip", dest_addr, jump_addr)
-
-    @property
-    def scp_transfer_client(self) -> SCPTransferClient:
-        """Gets the SCP client for the file transfer.
-
-        :returns: An object of the class that inherits from
-            :py:class:`SFTPClient`.
-        """
-        if not self._scp_transfer_client:
-            self._scp_transfer_client = SCPTransferClient(
-                self.client, self.config.encoding
-            )
-        return self._scp_transfer_client
-
-    @property
-    def scp_all_client(self) -> SCPClient:
-        """Gets the SCP client for the file transfer.
-
-        :returns: An object of the class type
-            :py:class:`SCPClient`.
-        """
-        if not self._scp_all_client:
-            self._scp_all_client = SCPClient(self.client)
-        return self._scp_all_client
-
-    @property
-    def shell(self) -> Shell:
-        """Gets the shell for the connection.
-
-        :returns: An object of the class that inherits from
-            :py:class:`AbstractShell`.
-        """
-        if not self._shell:
-            self._shell = Shell(
-                self.client,
-                self.config.term_type,
-                self.config.width,
-                self.config.height,
-            )
-        if self.width != self.config.width or self.height != self.config.height:
-            self._shell.resize(self.config.width, self.config.height)
-            self.width, self.height = self.config.width, self.config.height
-        return self._shell
 
     def close(self):
         """Closes the connection."""
