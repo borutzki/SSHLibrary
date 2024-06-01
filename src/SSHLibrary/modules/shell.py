@@ -27,7 +27,7 @@ class Shell:
         :returns: The read output.
         """
         data = b""
-        while self.output_available():
+        while self.output_available:
             data += self._shell.recv(4096)
         return data
 
@@ -36,7 +36,7 @@ class Shell:
 
         :returns: The read byte.
         """
-        if self._output_available():
+        if self.output_available:
             return self._shell.recv(1)
         return b""
 

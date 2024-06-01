@@ -1,7 +1,7 @@
 import time
 
 from robot.api import logger
-from robot.utils import is_truthy
+from robot.utils import is_truthy  # type: ignore
 
 from .exceptions import RemoteCommandException
 

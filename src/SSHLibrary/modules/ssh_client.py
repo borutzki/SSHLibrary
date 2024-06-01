@@ -47,10 +47,10 @@ def _custom_start_client(self, *args, **kwargs):
     self._orig_start_client(*args, **kwargs)
 
 
-paramiko.transport.Transport._orig_start_client = (
+paramiko.transport.Transport._orig_start_client = (  # type: ignore
     paramiko.transport.Transport.start_client
 )
-paramiko.transport.Transport.start_client = _custom_start_client
+paramiko.transport.Transport.start_client = _custom_start_client  # type: ignore
 
 
 # See http://code.google.com/p/robotframework-sshlibrary/issues/detail?id=55
@@ -65,8 +65,8 @@ def _custom_log(self, level, msg, *args):
     return self._orig_log(level, msg, *args)
 
 
-paramiko.sftp_client.SFTPClient._orig_log = paramiko.sftp_client.SFTPClient._log
-paramiko.sftp_client.SFTPClient._log = _custom_log
+paramiko.sftp_client.SFTPClient._orig_log = paramiko.sftp_client.SFTPClient._log  # type: ignore
+paramiko.sftp_client.SFTPClient._log = _custom_log  # type: ignore
 
 
 class _ClientConfiguration(Configuration):
@@ -124,7 +124,7 @@ class SSHClient:
         encoding="utf8",
         escape_ansi=False,
         encoding_errors="strict",
-    ):
+    ) -> None:
         self.config = _ClientConfiguration(
             host,
             alias,
@@ -144,8 +144,8 @@ class SSHClient:
         self._scp_transfer_client: SCPTransferClient | None = None
         self._scp_all_client: SCPClient | None = None
         self._shell: Shell | None = None
-        self._started_commands = []
-        self.client: SSHClient = self.create_client()
+        self._started_commands: list[RemoteCommand] = []
+        self.client: paramiko.SSHClient = self.create_client()
         self.width: int = width
         self.height: int = height
 
@@ -389,7 +389,7 @@ class SSHClient:
     def _encode(self, text: str | bytes | bytearray) -> bytes:
         if isinstance(text, (bytes, bytearray)):
             return text
-        if not isinstance(text, str):
+        if isinstance(text, str):
             return text.encode(self.config.encoding, self.config.encoding_errors)
 
     def _decode(self, bytes):

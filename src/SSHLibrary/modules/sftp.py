@@ -88,8 +88,8 @@ class SFTPClient:
         return item.is_regular()
 
     def _stat(self, path: str) -> SFTPFileInfo:
-        path = path.encode(self._encoding)
-        attributes = self._client.stat(path)
+        _path = path.encode(self._encoding)
+        attributes = self._client.stat(_path)
         return SFTPFileInfo("", attributes.st_mode)
 
     def is_dir(self, path: str) -> bool:
@@ -156,11 +156,9 @@ class SFTPClient:
         return [item.name for item in self._list(path)]
 
     def _list(self, path: str) -> Generator[SFTPFileInfo, Any, Any]:
-        path = path.encode(self._encoding)
-        for item in self._client.listdir_attr(path):
+        _path = path.encode(self._encoding)
+        for item in self._client.listdir_attr(_path):
             filename = item.filename
-            if is_bytes(filename):
-                filename = filename.decode(self._encoding)
             yield SFTPFileInfo(filename, item.st_mode)
 
     def _filter_by_pattern(self, items, pattern):

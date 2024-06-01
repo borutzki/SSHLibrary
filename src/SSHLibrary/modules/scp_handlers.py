@@ -58,7 +58,7 @@ class SCPClient:
     def _get_put_file_sources(self, source: Path) -> list[Path]:
         source = Path(source)
         if not source.exists():
-            sources = [Path(f) for f in glob.glob(source)]
+            sources = [str(Path(f)) for f in glob.glob(source)]
         else:
             sources = [f for f in [source]]
         if not sources:
